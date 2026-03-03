@@ -194,11 +194,6 @@ class GPTModel(nn.Module):
         logits = self.out_head(x)
         return logits
 
-
-tokenizer = tiktoken.get_encoding("gpt2")
-torch.manual_seed(123)
-model = GPTModel(GPT_CONFIG_124M)
-
 def generate_text_simple(model, idx, max_new_tokens, context_length):
     for _ in range(max_new_tokens):
         idx_cond = idx[:, -context_length:]
@@ -210,21 +205,3 @@ def generate_text_simple(model, idx, max_new_tokens, context_length):
         idx = torch.cat((idx, idx_next), dim=1)
     
     return idx
-
-start_ctx = "Hello, I am"
-encoded = tokenizer.encode(start_ctx)
-print("encoded:", encoded)
-encoded_tensor = torch.tensor(encoded).unsqueeze(0)
-print("encoded_tensor.shape:", encoded_tensor.shape)
-
-model.eval()
-out = generate_text_simple(
-    model=model,
-    idx=encoded_tensor,
-    max_new_tokens=6,
-    context_length=GPT_CONFIG_124M["context_length"]
-)
-print("output:", out)
-print("output len:", len(out[0]))
-decoded_text = tokenizer.decode(out.squeeze(0).tolist())
-print(decoded_text)
