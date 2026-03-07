@@ -1,6 +1,7 @@
 import torch
 import tiktoken
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 from model import GPTModel
 from model import generate_text_simple
 from tokenizer import create_dataloader_v1
@@ -74,26 +75,22 @@ def generate_and_print_sample(model, tokenizer, device, start_context):
     print(generated_text.replace("\n", " "))
     model.train()
 
-
 def plot_losses(epochs_seen, tokens_seen, train_losses, val_losses):
     fig, ax1 = plt.subplots(figsize=(5, 3))
     
-    ax1.plot(tokens_seen, train_losses, label="Train loss", color="tab:blue")
-    ax1.plot(tokens_seen, val_losses, label="Val loss", color="tab:red")
-    ax1.set_xlabel("Tokens seen")
+    ax1.plot(epochs_seen, train_losses, label="Train loss")
+    ax1.plot(epochs_seen, val_losses, linestyle="-.", label="Val loss")
+    ax1.set_xlabel("Epochs")
     ax1.set_ylabel("Loss")
-    ax1.legend()
-    ax1.grid(True)
+    ax1.legend(loc="upper right")
+    ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
     
     ax2 = ax1.twiny()
-    ax2.plot(epochs_seen, train_losses, label="Train loss", alpha=0)
-    ax2.plot(epochs_seen, val_losses, label="Val loss", alpha=0)
-    ax2.set_xlabel("Epochs seen")
+    ax2.plot(tokens_seen, train_losses, alpha=0)
+    ax2.set_xlabel("Tokens seen")
     
-    plt.tight_layout()
-    plt.savefig("losses.png")
+    fig.tight_layout()
     plt.show()
-
 
 def train_model_simple(model, train_loader, val_loader, 
                         optimizer, device, num_epochs, 
@@ -169,3 +166,6 @@ train_losses, val_losses, tokens_seen = train_model_simple(
     num_epochs=num_epochs, eval_freq=5, eval_iter=5,
     start_context="Every effort moves you", tokenizer=tokenizer
 )
+
+epochs_tensor = torch.linspace(0, num_epochs, len(train_losses))
+plot_losses(epochs_tensor, tokens_seen, train_losses, val_losses)

@@ -1,16 +1,18 @@
 import urllib.request
 import re
+import os
 import torch
 from torch.utils.data import Dataset, DataLoader
 import tiktoken
 
 
-# 下载文件
 url = ("https://raw.githubusercontent.com/rasbt/"
        "LLMs-from-scratch/main/ch02/01_main-chapter-code/"
        "the-verdict.txt")
 file_path = "the-verdict.txt"
-urllib.request.urlretrieve(url, file_path)
+
+if not os.path.exists(file_path):
+    urllib.request.urlretrieve(url, file_path)
 
 # 读取文件内容
 with open(file_path, "r", encoding="utf-8") as f:
