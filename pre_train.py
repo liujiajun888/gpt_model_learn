@@ -3,7 +3,7 @@ import tiktoken
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 from model import GPTModel
-from model import generate_text_simple
+from model import generate_text_simple, generate
 from tokenizer import create_dataloader_v1
 
 torch.manual_seed(123)
@@ -118,7 +118,7 @@ def train_model_simple(model, train_loader, val_loader,
                 track_tokens_seen.append(tokens_seen)
                 print(f"Epoch {epoch+1} | Step {global_step} | Train loss: {train_loss:.3f} | Val loss: {val_loss:.3f}")
         
-        generate_and_print_sample(model, tokenizer, device, start_context)
+        # generate_and_print_sample(model, tokenizer, device, start_context)
     return train_losses, val_losses, track_tokens_seen
 
 
@@ -167,5 +167,25 @@ train_losses, val_losses, tokens_seen = train_model_simple(
     start_context="Every effort moves you", tokenizer=tokenizer
 )
 
-epochs_tensor = torch.linspace(0, num_epochs, len(train_losses))
-plot_losses(epochs_tensor, tokens_seen, train_losses, val_losses)
+# epochs_tensor = torch.linspace(0, num_epochs, len(train_losses))
+# plot_losses(epochs_tensor, tokens_seen, train_losses, val_losses)
+print("====================================================")
+model.to("cpu")
+model.eval()
+token_ids = generate_text_simple(
+    model=model,
+    idx=text_to_token_ids("Every effort moves you", tokenizer),
+    max_new_tokens=25,
+    context_length=GPT_CONFIG_124M["context_length"]
+)
+print("Output text1:\n", token_ids_to_text(token_ids, tokenizer))
+
+token_ids_2 = generate(
+    model=model,
+    idx=text_to_token_ids("Every effort moves you", tokenizer),
+    max_new_tokens=15,
+    context_length=GPT_CONFIG_124M["context_length"],
+    top_k=25,
+    temperature=1.4
+)
+print("Output text2:\n", token_ids_to_text(token_ids_2, tokenizer))
