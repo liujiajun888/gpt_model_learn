@@ -180,7 +180,7 @@ optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
 # epochs_tensor = torch.linspace(0, num_epochs, len(train_losses))
 # plot_losses(epochs_tensor, tokens_seen, train_losses, val_losses)
-print("====================================================")
+# print("====================================================")
 model.to("cpu")
 model.eval()
 token_ids = generate_text_simple(
@@ -189,7 +189,7 @@ token_ids = generate_text_simple(
     max_new_tokens=25,
     context_length=GPT_CONFIG_124M["context_length"]
 )
-print("Output text1:\n", token_ids_to_text(token_ids, tokenizer))
+# print("Output text1:\n", token_ids_to_text(token_ids, tokenizer))
 
 token_ids_2 = generate(
     model=model,
@@ -199,4 +199,4 @@ token_ids_2 = generate(
     top_k=25,
     temperature=1.4
 )
-print("Output text2:\n", token_ids_to_text(token_ids_2, tokenizer))
+# print("Output text2:\n", token_ids_to_text(token_ids_2, tokenizer))

@@ -14,3 +14,6 @@ build/
 *.pth
 *.pt
 *.ckpt
+
+# GPT-2 models
+gpt2/
