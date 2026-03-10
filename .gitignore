@@ -17,3 +17,8 @@ build/
 
 # GPT-2 models
 gpt2/
+
+# SMS Spam dataset
+sms_spam_collection/
+sms_spam_collection.zip
+*.csv
