@@ -1,11 +1,17 @@
 import urllib.request
 import zipfile
 import os
+import warnings
+warnings.filterwarnings("ignore")
 from pathlib import Path
 import pandas as pd
 import tiktoken
 import torch
 from torch.utils.data import Dataset, DataLoader
+from gpt_download import download_and_load_gpt2
+from load_gpt_model import load_weights_into_gpt
+from model import GPTModel, generate_text_simple
+from pre_train import text_to_token_ids, token_ids_to_text
 
 
 url = "https://archive.ics.uci.edu/static/public/228/sms+spam+collection.zip"
@@ -106,43 +112,64 @@ tokenizer = tiktoken.get_encoding("gpt2")
 train_dataset = SpamDataset(
     csv_file="train.csv",
     max_length=None,
-    tokenizer=tokenizer
-)
+    tokenizer=tokenizer)
 val_dataset = SpamDataset(
     csv_file="validation.csv",
     max_length=train_dataset.max_length,
-    tokenizer=tokenizer
-)
+    tokenizer=tokenizer)
 test_dataset = SpamDataset(
     csv_file="test.csv",
     max_length=train_dataset.max_length,
-    tokenizer=tokenizer
-)
-
+    tokenizer=tokenizer)
 train_loader = DataLoader(
     dataset=train_dataset,
     batch_size=batch_size,
     shuffle=True,
     num_workers=num_workers,
-    drop_last=True
-)
+    drop_last=True)
 val_loader = DataLoader(
     dataset=val_dataset,
     batch_size=batch_size,
     num_workers=num_workers,
-    drop_last=False
-)
+    drop_last=False)
 test_loader = DataLoader(
     dataset=test_dataset,
     batch_size=batch_size,
     num_workers=num_workers,
-    drop_last=False
-)
-for input_batch, target_batch in train_loader:
-    pass
-print("Input batch dimensions:", input_batch.shape)
-print("Label batch dimensions", target_batch.shape)
+    drop_last=False)
 
-print(f"{len(train_loader)} training batches")
-print(f"{len(val_loader)} validation batches")
-print(f"{len(test_loader)} test batches")
+model_configs = {
+    "gpt2-small (124M)":  {"emb_dim": 768,  "n_layers": 12, "n_heads": 12},
+    "gpt2-medium (355M)": {"emb_dim": 1024, "n_layers": 24, "n_heads": 16},
+    "gpt2-large (774M)":  {"emb_dim": 1280, "n_layers": 36, "n_heads": 20},
+    "gpt2-xl (1558M)":    {"emb_dim": 1600, "n_layers": 48, "n_heads": 25},
+}
+CHOOSE_MODEL = "gpt2-small (124M)"
+INPUT_PROMPT = "Every effort moves"
+BASE_CONFIG = {
+    "vocab_size": 50257,
+    "context_length": 1024,
+    "drop_rate": 0.0,
+    "qkv_bias": True
+}
+BASE_CONFIG.update(model_configs[CHOOSE_MODEL])
+model_size = CHOOSE_MODEL.split(" ")[-1].lstrip("(").rstrip(")")
+settings, params = download_and_load_gpt2(
+    model_size=model_size, models_dir="gpt2"
+)
+model = GPTModel(BASE_CONFIG)
+load_weights_into_gpt(model, params)
+model.eval()
+
+text_2 = (
+    "Is the following text 'spam'? Answer with 'yes' or 'no':"
+    " 'You are a winner you have been specially"
+    " selected to receive $1000 cash or a $2000 award.'"
+)
+token_ids = generate_text_simple(
+    model=model,
+    idx=text_to_token_ids(text_2, tokenizer),
+    max_new_tokens=23,
+    context_size=BASE_CONFIG["context_length"]
+)
+print(token_ids_to_text(token_ids, tokenizer))

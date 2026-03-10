@@ -172,31 +172,33 @@ def train_model_simple(model, train_loader, val_loader,
 #     },
 #     "model_and_optimizer.pth"
 # )
-checkpoint = torch.load("model_and_optimizer.pth", map_location=device)
-model = GPTModel(GPT_CONFIG_124M)
-model.load_state_dict(checkpoint["model_state_dict"])
-optimizer = torch.optim.AdamW(model.parameters(), lr=5e-4, weight_decay=0.1)
-optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
-# epochs_tensor = torch.linspace(0, num_epochs, len(train_losses))
-# plot_losses(epochs_tensor, tokens_seen, train_losses, val_losses)
-# print("====================================================")
-model.to("cpu")
-model.eval()
-token_ids = generate_text_simple(
-    model=model,
-    idx=text_to_token_ids("Every effort moves you", tokenizer),
-    max_new_tokens=25,
-    context_length=GPT_CONFIG_124M["context_length"]
-)
-# print("Output text1:\n", token_ids_to_text(token_ids, tokenizer))
+if __name__ == "__main__":
+    checkpoint = torch.load("model_and_optimizer.pth", map_location=device)
+    model = GPTModel(GPT_CONFIG_124M)
+    model.load_state_dict(checkpoint["model_state_dict"])
+    optimizer = torch.optim.AdamW(model.parameters(), lr=5e-4, weight_decay=0.1)
+    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
-token_ids_2 = generate(
-    model=model,
-    idx=text_to_token_ids("Every effort moves you", tokenizer),
-    max_new_tokens=15,
-    context_length=GPT_CONFIG_124M["context_length"],
-    top_k=25,
-    temperature=1.4
-)
-# print("Output text2:\n", token_ids_to_text(token_ids_2, tokenizer))
+    # epochs_tensor = torch.linspace(0, num_epochs, len(train_losses))
+    # plot_losses(epochs_tensor, tokens_seen, train_losses, val_losses)
+    # print("====================================================")
+    model.to("cpu")
+    model.eval()
+    token_ids = generate_text_simple(
+        model=model,
+        idx=text_to_token_ids("Every effort moves you", tokenizer),
+        max_new_tokens=25,
+        context_length=GPT_CONFIG_124M["context_length"]
+    )
+    # print("Output text1:\n", token_ids_to_text(token_ids, tokenizer))
+
+    token_ids_2 = generate(
+        model=model,
+        idx=text_to_token_ids("Every effort moves you", tokenizer),
+        max_new_tokens=15,
+        context_length=GPT_CONFIG_124M["context_length"],
+        top_k=25,
+        temperature=1.4
+    )
+    # print("Output text2:\n", token_ids_to_text(token_ids_2, tokenizer))
