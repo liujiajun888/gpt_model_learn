@@ -97,7 +97,33 @@ class SpamDataset(Dataset):
             longest = max(longest, len(token_ids))
         return longest
 
+def calc_accuracy_loader(data_loader, model, device, num_batches=None):
+    model.eval()
+    correct = 0
+    total = 0
 
+    if num_batches is None:
+        num_batches = len(data_loader)
+    else:
+        num_batches = min(num_batches, len(data_loader))
+    
+    with torch.no_grad():
+        for i, (input_batch, target_batch) in enumerate(data_loader):
+            if i >= num_batches:
+                break
+            input_batch = input_batch.to(device)
+            target_batch = target_batch.to(device)
+            
+            logits = model(input_batch)[:, -1, :]
+            predictions = torch.argmax(logits, dim=-1)
+            
+            total += predictions.shape[0]
+            correct += (predictions == target_batch).sum().item()
+    
+    return correct / total if total > 0 else 0
+
+
+# 1. data
 # download_and_unzip_spam_data(url, zip_path, extracted_path, data_file_path)
 df = pd.read_csv(data_file_path, sep='\t', header=None, names=["Label", "Text"])
 balanced_df = create_balanced_dataset(df)
@@ -138,6 +164,7 @@ test_loader = DataLoader(
     num_workers=num_workers,
     drop_last=False)
 
+# 2. model
 model_configs = {
     "gpt2-small (124M)":  {"emb_dim": 768,  "n_layers": 12, "n_heads": 12},
     "gpt2-medium (355M)": {"emb_dim": 1024, "n_layers": 24, "n_heads": 16},
@@ -161,6 +188,37 @@ model = GPTModel(BASE_CONFIG)
 load_weights_into_gpt(model, params)
 model.eval()
 
+for param in model.parameters():
+    param.requires_grad = False
+
+num_classes = 2
+model.out_head = torch.nn.Linear(
+    in_features=BASE_CONFIG["emb_dim"],
+    out_features=num_classes
+)
+for param in model.transformer_blocks[-1].parameters():
+    param.requires_grad = True
+for param in model.final_norm.parameters():
+    param.requires_grad = True
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model.to(device)
+
+train_accuracy = calc_accuracy_loader(
+    train_loader, model, device, num_batches=10
+)
+val_accuracy = calc_accuracy_loader(
+    val_loader, model, device, num_batches=10
+)
+test_accuracy = calc_accuracy_loader(
+    test_loader, model, device, num_batches=10
+)
+
+print(f"Training accuracy: {train_accuracy*100:.2f}%")
+print(f"Validation accuracy: {val_accuracy*100:.2f}%")
+print(f"Test accuracy: {test_accuracy*100:.2f}%")
+
+# 3. result
 text_2 = (
     "Is the following text 'spam'? Answer with 'yes' or 'no':"
     " 'You are a winner you have been specially"
@@ -172,4 +230,3 @@ token_ids = generate_text_simple(
     max_new_tokens=23,
     context_size=BASE_CONFIG["context_length"]
 )
-print(token_ids_to_text(token_ids, tokenizer))
