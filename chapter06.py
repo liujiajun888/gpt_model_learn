@@ -1,6 +1,7 @@
 import urllib.request
 import zipfile
 import os
+import time
 import warnings
 warnings.filterwarnings("ignore")
 from pathlib import Path
@@ -122,6 +123,96 @@ def calc_accuracy_loader(data_loader, model, device, num_batches=None):
     
     return correct / total if total > 0 else 0
 
+def calc_loss_batch(input_batch, target_batch, model, device):
+    input_batch = input_batch.to(device)
+    target_batch = target_batch.to(device)
+    logits = model(input_batch)[:, -1, :]
+    loss = torch.nn.functional.cross_entropy(logits, target_batch)
+    return loss
+
+def calc_loss_loader(data_loader, model, device, num_batches=None):
+    total_loss = 0.0
+    if len(data_loader) == 0:
+        return float("nan")
+    
+    if num_batches is None:
+        num_batches = len(data_loader)
+    else:
+        num_batches = min(num_batches, len(data_loader))
+    
+    for i, (input_batch, target_batch) in enumerate(data_loader):
+        if i >= num_batches:
+            break
+        loss = calc_loss_batch(input_batch, target_batch, model, device)
+        total_loss += loss.item()
+    
+    return total_loss / num_batches
+
+def evaluate_model(model, train_loader, val_loader, device, eval_iter):
+    model.eval()
+    with torch.no_grad():
+        train_loss = calc_loss_loader(
+            train_loader, model, device, num_batches=eval_iter
+        )
+        val_loss = calc_loss_loader(
+            val_loader, model, device, num_batches=eval_iter
+        )
+    model.train()
+    return train_loss, val_loss
+
+def train_classifier_simple(model, train_loader, val_loader, 
+                        optimizer, device, num_epochs, 
+                        eval_freq, eval_iter):
+    train_losses = []
+    val_losses = []
+    train_accs = []
+    val_accs = []
+    examples_seen = 0
+    global_step = -1
+
+    for epoch in range(num_epochs):
+        model.train()
+        for input_batch, target_batch in train_loader:
+            optimizer.zero_grad()
+            loss = calc_loss_batch(input_batch, target_batch, model, device)
+            loss.backward()
+            optimizer.step()
+            examples_seen += input_batch.shape[0]
+            global_step += 1
+
+            if global_step % eval_freq == 0:
+                train_loss, val_loss = evaluate_model(model, train_loader, val_loader, device, eval_iter)
+                train_losses.append(train_loss)
+                val_losses.append(val_loss)
+                print(f"Epoch {epoch+1} | Step {global_step} | Train loss: {train_loss:.3f} | Val loss: {val_loss:.3f}")
+        
+        train_accuracy = calc_accuracy_loader(
+            train_loader, model, device, num_batches=eval_iter
+        )
+        val_accuracy = calc_accuracy_loader(
+            val_loader, model, device, num_batches=eval_iter
+        )
+        print(f"Training accuracy: {train_accuracy*100:.2f}% | ", end="")
+        print(f"Validation accuracy: {val_accuracy*100:.2f}%")
+        train_accs.append(train_accuracy)
+        val_accs.append(val_accuracy)
+    return train_losses, val_losses, train_accs, val_accs, examples_seen
+
+def classify_review(text, model, tokenizer, device, max_length=None, pad_token_id=50256):
+    model.eval()
+    input_ids = tokenizer.encode(text)
+    supported_context_length = model.pos_emb.weight.shape[1]
+    input_ids = input_ids[: min(max_length, supported_context_length)]
+    input_ids += [pad_token_id] * (max_length - len(input_ids))
+
+    input_tensor = torch.tensor(input_ids, device=device).unsqueeze(0)
+    
+    with torch.no_grad():
+        logits = model(input_tensor)[:, -1, :]
+        prediction = torch.argmax(logits, dim=-1).item()
+    
+    return "spam" if prediction == 1 else "ham"
+
 
 # 1. data
 # download_and_unzip_spam_data(url, zip_path, extracted_path, data_file_path)
@@ -164,6 +255,7 @@ test_loader = DataLoader(
     num_workers=num_workers,
     drop_last=False)
 
+
 # 2. model
 model_configs = {
     "gpt2-small (124M)":  {"emb_dim": 768,  "n_layers": 12, "n_heads": 12},
@@ -204,29 +296,49 @@ for param in model.final_norm.parameters():
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
 
-train_accuracy = calc_accuracy_loader(
-    train_loader, model, device, num_batches=10
-)
-val_accuracy = calc_accuracy_loader(
-    val_loader, model, device, num_batches=10
-)
-test_accuracy = calc_accuracy_loader(
-    test_loader, model, device, num_batches=10
+
+# 3. train
+start_time = time.time()
+optimizer = torch.optim.AdamW(model.parameters(), lr=5e-5, weight_decay=0.1)
+num_epochs = 5
+
+train_losses, val_losses, train_accs, val_accs, examples_seen = train_classifier_simple(
+    model, train_loader, val_loader, optimizer, device,
+    num_epochs=num_epochs, eval_freq=50,
+    eval_iter=5
 )
 
+end_time = time.time()
+execution_time_minutes = (end_time - start_time) / 60
+print(f"Training completed in {execution_time_minutes:.2f} minutes.")
+
+
+# 4. result
+train_accuracy = calc_accuracy_loader(train_loader, model, device)
+val_accuracy = calc_accuracy_loader(val_loader, model, device)
+test_accuracy = calc_accuracy_loader(test_loader, model, device)
 print(f"Training accuracy: {train_accuracy*100:.2f}%")
 print(f"Validation accuracy: {val_accuracy*100:.2f}%")
 print(f"Test accuracy: {test_accuracy*100:.2f}%")
 
-# 3. result
+text_1 = (
+    "You are a winner you have been specially"
+    " selected to receive $1000 cash or a $2000 award."
+)
+print(classify_review(
+    text_1, model, tokenizer, device, max_length=train_dataset.max_length
+))
 text_2 = (
-    "Is the following text 'spam'? Answer with 'yes' or 'no':"
-    " 'You are a winner you have been specially"
-    " selected to receive $1000 cash or a $2000 award.'"
+    "Hey, just wanted to check if we're still on"
+    " for dinner tonight? Let me know!"
 )
-token_ids = generate_text_simple(
-    model=model,
-    idx=text_to_token_ids(text_2, tokenizer),
-    max_new_tokens=23,
-    context_size=BASE_CONFIG["context_length"]
-)
+
+print(classify_review(
+    text_2, model, tokenizer, device, max_length=train_dataset.max_length
+))
+
+
+# save and load model
+torch.save(model.state_dict(), "review_classifier.pth")
+# model_state_dict = torch.load("review_classifier.pth, map_location=device")
+# model.load_state_dict(model_state_dict)
