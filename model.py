@@ -194,9 +194,9 @@ class GPTModel(nn.Module):
         logits = self.out_head(x)
         return logits
 
-def generate_text_simple(model, idx, max_new_tokens, context_size):
+def generate_text_simple(model, idx, max_new_tokens, context_length):
     for _ in range(max_new_tokens):
-        idx_cond = idx[:, -context_size:]
+        idx_cond = idx[:, -context_length:]
         with torch.no_grad():
             logits = model(idx_cond)
         logits = logits[:, -1, :]
@@ -228,7 +228,7 @@ def generate(model, idx, max_new_tokens, context_length,
             probs = torch.softmax(logits, dim=-1)
             idx_next = torch.multinomial(probs, num_samples=1)
         else:
-            idx_next = torch.argmax(probs, dim=-1, keepdim=True)
+            idx_next = torch.argmax(logits, dim=-1, keepdim=True)
         
         if idx_next == eos_id:
             break;
