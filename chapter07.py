@@ -206,20 +206,20 @@ model.eval();
 # epochs_tensor = torch.linspace(0, num_epochs, len(train_losses))
 # plot_losses(epochs_tensor, tokens_seen, train_losses, val_losses)
 
-for i, entry in tqdm(enumerate(test_data), total=len(test_data)):
-    input_text = format_input(entry)
+# for i, entry in tqdm(enumerate(test_data), total=len(test_data)):
+#     input_text = format_input(entry)
 
-    token_ids = generate(
-        model=model,
-        idx=text_to_token_ids(input_text, tokenizer).to(device),
-        max_new_tokens=256,
-        context_length=BASE_CONFIG["context_length"],
-        eos_id=50256
-    )
-    generated_text = token_ids_to_text(token_ids, tokenizer)
-    response_text = (generated_text[len(input_text):].replace("### Response:", "").strip())
-    test_data[i]["model_response"] = response_text
+#     token_ids = generate(
+#         model=model,
+#         idx=text_to_token_ids(input_text, tokenizer).to(device),
+#         max_new_tokens=256,
+#         context_length=BASE_CONFIG["context_length"],
+#         eos_id=50256
+#     )
+#     generated_text = token_ids_to_text(token_ids, tokenizer)
+#     response_text = (generated_text[len(input_text):].replace("### Response:", "").strip())
+#     test_data[i]["model_response"] = response_text
 
-with open("instruction-data-with-response.json", "w") as file:
-    json.dump(test_data, file, indent=4)
-print(test_data[0])
+# with open("instruction-data-with-response.json", "w") as file:
+#     json.dump(test_data, file, indent=4)
+# print(test_data[0])
