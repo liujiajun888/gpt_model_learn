@@ -64,13 +64,13 @@ def generate_model_scores(json_data, json_key, model="llama3"):
     return scores
 
 
-# ollama_running = check_if_running("ollama")
+ollama_running = check_if_running("ollama")
 
-# if not ollama_running:
-#     raise RuntimeError(
-#         "Ollama not running. Launch ollama before proceeding."
-# )
-# print("Ollama running:", check_if_running("ollama"))
+if not ollama_running:
+    raise RuntimeError(
+        "Ollama not running. Launch ollama before proceeding."
+)
+print("Ollama running:", check_if_running("ollama"))
 
 file_path = "instruction-data-with-response.json"
 with open(file_path, "r") as file:
